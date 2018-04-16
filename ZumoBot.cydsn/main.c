@@ -51,8 +51,8 @@ int rread(void);
  * @brief   
  * @details  ** Enable global interrupt since Zumo library uses interrupts. **<br>&nbsp;&nbsp;&nbsp;CyGlobalIntEnable;<br>
 */
-
-struct sensors_value 
+float l_speed, r_speed;
+/**struct sensors_value 
  {
     float l3;
     float l2; 
@@ -60,11 +60,32 @@ struct sensors_value
     float r1;
     float r2;
     float r3;
-    };
+    };*/
 
 void go_ahead(int l_speed, int r_speed, int delay, int l_dir, int r_dir);
+/*void speed(struct sensors_ *dig){
 
-void normalize(struct sensors_value *, struct sensors_ *);
+    if(dig->l1){
+        l_speed=255;
+    }
+    else if(dig->l2){
+       l_speed=175; 
+    }
+    else if(dig->l3){
+        l_speed=85;
+    }
+    
+    if(dig->r1){
+        r_speed=255;
+    }else if(dig->r2){
+       r_speed=175; 
+    }
+    else if(dig->r3){
+        r_speed=85;
+    }
+    
+}*/
+//void normalize(struct sensors_value *, struct sensors_ *);
 
 #if 0
 //battery level//
@@ -203,7 +224,7 @@ int main(){
 
     struct sensors_ ref;
     struct sensors_ dig;
-    struct sensors_value Val;
+   // struct sensors_value Val;
     Systick_Start();
 
     CyGlobalIntEnable; 
@@ -229,6 +250,7 @@ int main(){
     
     for(;;)
     {
+            //speed(&dig);
         ADC_Battery_StartConvert();
         if(ADC_Battery_IsEndConversion(ADC_Battery_WAIT_FOR_RESULT)) {   // wait for get ADC converted value
             adcresult = ADC_Battery_GetResult16(); // get the ADC value (0 - 4095)
@@ -252,50 +274,60 @@ int main(){
        // printf("\n%f %f %f %f %f %f\n", Val.l3, Val.l2, Val.l1, Val.r1, Val.r2, Val.r3);
         
         if( dig.l1 == 1 && dig.r1 == 1){
-            motor_forward(100,200);
+            go_ahead(240,237,0,0,0);
         }
         else if(dig.l1 == 0 && dig.r1==1){
          
-           go_ahead(100, 50, 100, 0,1);
+           go_ahead(250, 200, 0, 0,0);
+        //go_ahead(l_speed, r_speed, 0, 0,0);
             
         }
         else if(dig.l1 == 1 && dig.r1==0){
             
-            go_ahead(50, 100, 100, 1 ,0);
-            
+            go_ahead(200, 250, 0, 0 ,0);
+           // go_ahead(l_speed, r_speed, 0, 0,0);
         }
-        else if(dig.r2 == 1 && dig.r1==0){
+       /* else if(dig.r2 == 1 && dig.r1==1){
            
-            go_ahead(100,50,10,0,1);
+            go_ahead(150,120,0,0,0);
+            //go_ahead(l_speed, r_speed, 0, 0,0);
         }
-        else if(dig.l2 == 1 && dig.l1==0){
+        else if(dig.l2 == 1 && dig.l1==1){
            
-            go_ahead(50,100,10,1,0);
+            go_ahead(120,150,0,0,0);
+            //go_ahead(l_speed, r_speed, 0, 0,0);
         }
-        
-        else if(dig.l3==1 && dig.l1==0){
+        */
+        else if(dig.l3==1 &&dig.l2==1){
             last_Black=1;
-            go_ahead(50,150,50,1,0);
-        
+            go_ahead(50,250,0,1,0);
+        //go_ahead(l_speed, r_speed, 0, 1,0);
         }
        
-        else if(dig.r3==1 && dig.r1==0){
+        else if(dig.r3==1 && dig.r2==1){
              last_Black=0;
-            go_ahead(150,50,50,0,1);
+           go_ahead(250,50,0,0,1);
+           // go_ahead(l_speed, r_speed, 0, 0,1);
         }
         else if(last_Black){
-            go_ahead(50,150,100,1,0);
+            go_ahead(250,250,10,1,0);
+            //go_ahead(l_speed, r_speed, 0, 1,0);
         }
         else if(!last_Black){
-            go_ahead(150,50,100,0,1);
+           go_ahead(250,250,0,0,1);
+           // go_ahead(l_speed, r_speed, 0, 0,1);
         }
-         
+        if(dig.l1 && dig.l2 && dig.l3 && dig.r3 && dig.r2 && dig.r1){
+            motor_forward(0,0);
+            
+        }
+        //go_ahead(0,0,0,1,1);
         
-        if(dig.l1 == 0 && dig.r1 == 0 && dig.l3==0 &&  dig.r3==0 && dig.l2==0 && dig.r2==0){
+       /* if(dig.l1 == 0 && dig.r1 == 0 && dig.l3==0 &&  dig.r3==0 && dig.l2==0 && dig.r2==0){
             motor_forward(0,0);
         
-        }
-    CyDelay(10);
+        }*/
+    CyDelay(0);
 }   
 }
 #endif
