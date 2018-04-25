@@ -54,8 +54,8 @@ int rread(void);
 */
 
 int max_speed = 155;
-int kp=250, kd=4/100;
-float max_value=20000, min_value=6000;
+float kp=250, kd=0.4;
+float max_value=20000, min_value=8000;
 int l_speed, r_speed;
 
 struct sensors_value 
@@ -357,14 +357,13 @@ int main(){
     
    
     //int last_Black; //0 = last black on right, 1 = last black on left
-    struct sensors_ ref;
-    struct sensors_ dig;
+    struct sensors_ ref, dig;
+    
     struct sensors_value Val, last_Val, diff_Val={0,0,0,0,0,0};
-     
+    
     float volts = 0.0;
-    int count=1;
-    int speed;
-    int last_black=0;
+    int flag=0,count,button, speed,last_Black=0;
+    
     //BatteryLed_Write(1); // Switch led on 
     BatteryLed_Write(0); // Switch led off 
     
@@ -373,9 +372,29 @@ int main(){
     CyDelay(5);
     reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
     reflectance_digital(&dig);
-   
-   // IR_wait(); // wait for IR command
-    motor_start(); 
+    reflectance_read(&ref);
+    
+    
+    printf("ref: %d dig: %d\n",ref.l3, dig.l3);
+      motor_start();  
+      /* do{
+        button = SW1_Read();
+        printf("%d\n",button);
+        printf("\nstop for IR signal\n");
+            
+            if(dig.l3==1&&dig.l2==1&&dig.r2==1&&dig.r2==1){
+                go_ahead(0,0,0);
+                
+            }
+            go_ahead(0,0,0);
+            CyDelay(500);
+    }while(button!=0); */
+    
+    go_ahead(50,50,0);
+    
+    if(dig.l3&&dig.l2&&dig.l1&&dig.r1&&dig.r2&&dig.r3) motor_forward(0,0);
+    IR_wait(); // wait for IR command
+    
     
    
     
@@ -390,47 +409,63 @@ int main(){
             // you need to implement the conversion
             volts=(adcresult/4095)*5*1.5;
             // Print both ADC results and converted value
-            printf("%d %f\r\n",adcresult, volts);        
+           // printf("\ncode: %d Volts: %f\r\n",adcresult, volts);        
 
         }
         
             reflectance_read(&ref);
             normalize(&Val, &ref);
             diff_(&diff_Val, &Val, &last_Val); 
+            
+            count=(Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3);
             last_Val=Val; 
             
-            l_speed = (Val.r1 * kp - diff_Val.r1*kd)+ (Val.r2*kp - diff_Val.r2*kd )*2+ (Val.r3*kp - diff_Val.r3*kd)*3; //as the farther sensor gets black value, the speed gets higher hence sharper turn.
-            r_speed = (Val.l1 * -kp - diff_Val.l1*-kd) + (Val.l2*-kp - diff_Val.l2 * -kd)*2 + (Val.l3*-kp - diff_Val.l3 *-kd)*3; // negating right speed to bring the contrast on speed
+            l_speed = (Val.r1 * kp*2 - diff_Val.r1*kd)+ (Val.r2*kp *2- diff_Val.r2*kd )+ (Val.r3*kp*5 - diff_Val.r3*kd); //as the farther sensor gets black value, the speed gets higher hence sharper turn.
+            r_speed = (Val.l1 * -kp*2 - diff_Val.l1*-kd) + (Val.l2*-kp*2 - diff_Val.l2 * -kd) + (Val.l3*-kp*5 - diff_Val.l3 *-kd); // negating right speed to bring the contrast on speed
         
             speed = l_speed + r_speed; //depending upon values from sensor, speed is either positive or negative indicating left sensors are in black or right are in black.
           
         
-    if((Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3)==0){
-        go_ahead(0,0,0);
-    }
-    else if((Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3)==6 && count==2){
-        
-        if(count==2) go_ahead(0,0,0);
-        
-        printf("\nstopping %d count\n", count);
-        count+=1;
-    }
-    else{
-          
-        if(speed<=0)    // if speed is negative, right speed is higher so it turns left.
-            go_ahead(l_speed,-r_speed,0);  //r_speed is multiplied by -1 to get the positive value for right speed.  
-           //  printf("\nleft: %d, right: %d\n",l_speed, r_speed);
-        else if(speed>0)          //if speed is positive, left speed is higher so it turns right  
-            go_ahead(l_speed, -r_speed, 0); 
-        
-       
-    }
-       // if(Val.l3>=0.8)   last_black=1; //last black on left
-        //else if(Val.r3>0.8)  last_black=0;//last black on right
-          
-    }
+        if(count==0){
+            //go_ahead(0,0,0);
+            if(last_Black==2){
+                
+                    go_ahead(250, -250,0);printf("\nr_speed %f",Val.l1);
+                
+            }  
+            else if(last_Black==1){
+             
+                    go_ahead(-250, 250,0);printf("\nr_speed %f",Val.l1);
+               
+            }
+        }
+    
+    
+        else if(count<5){
+            
+            if(Val.l3)    last_Black=1;
+            if(Val.r3)    last_Black=2;
+            
+            if(speed<=0)    // if speed is negative, right speed is higher so it turns left.
+                {go_ahead(l_speed,-r_speed,0);}  //r_speed is multiplied by -1 to get the positive value for right speed.  
+                     // printf("\nr_speed %d left: %f, %f, /// l_speed %d right: %f, %f\n",r_speed, Val.l2,  Val.l3, l_speed, Val.r2, Val.r3);}
+             else if(speed>0)          //if speed is positive, left speed is higher so it turns right  
+                go_ahead(l_speed, -r_speed, 0); 
          
-          
+        }
+        
+        else if(count>5&&flag<2){
+           go_ahead(50,50,0);
+            flag+=1;
+            CyDelay(100);
+           
+        }
+        else if(count>5&&flag>=2){
+            go_ahead(0,0,0);
+             motor_stop();
+        }
+    
+    }
 }
 
 #endif
@@ -471,10 +506,10 @@ void normalize(struct sensors_value *val, struct sensors_ *ref){
 void go_ahead(int left, int right, int delay){
     
    
-    
+    /*
     if(left < 0){
     MotorDirLeft_Write(1);
-    left = left * -1;
+    left=left * -1;
     }// set LeftMotor forward mode
     
     if(right < 0)
@@ -482,31 +517,33 @@ void go_ahead(int left, int right, int delay){
     MotorDirRight_Write(1);
     right = right * -1;
     }// set RightMotor forward mode
+    */
+   if(left > 255) {left=255;MotorDirLeft_Write(0); } 
+        
+    else if(left<0)  { left=0; MotorDirLeft_Write(1); printf("\nleft speed negative\n");left=left*(-1); }  
+        
+    if(right > 255)  {right=255;MotorDirRight_Write(0); } 
+       
+    else if(right<0)  {right=0; MotorDirRight_Write(1); right=right*(-1);}  
     
-   if(left > 255) left=255;
-        //do {left = left-255;}while(left>255);
-    else if(left<0)   left=0;   
-        //do {left = left + 255;}while(left<0);
-    if(right > 255)  right=255; 
-       //do {right = right-255;}while(right>255);
-    else if(right<0)  right=0; 
-       // do {right= right+255;}while(right<0);
-   // printf("...%d\n",right);
-   // printf("\nleft: %d, right: %d\n",left, right);
-    PWM_WriteCompare1(left);        //sets left motor speed to value  "left", recieved from main function as parameter
-    PWM_WriteCompare2(right);       //sets right motor speed to value  "right", recieved from main function as parameter
+      
+   
+    
+    PWM_WriteCompare1(left);       //sets left motor speed to value  "left", recieved from main function as parameter
+    PWM_WriteCompare2(right);      //sets right motor speed to value  "right", recieved from main function as parameter
+    
     CyDelay(delay);
 }
 
 void diff_(struct sensors_value *diff_val, struct sensors_value *val, struct sensors_value *last_Val){
     
     
-    diff_val->l3=last_Val->l3-(val->l3); //diff_val = old error value - new error value;
-    diff_val->l2=last_Val->l2-(val->l2);
-    diff_val->l1=last_Val->l1-(val->l1);
-    diff_val->r3=last_Val->r3-(val->r3);
-    diff_val->r2=last_Val->r2-(val->r2);
-    diff_val->r1=last_Val->r1-(val->r1);
+    diff_val->l3 = last_Val->l3 - (val->l3); //diff_val = old error value - new error value;
+    diff_val->l2 = last_Val->l2 - (val->l2);
+    diff_val->l1 = last_Val->l1 - (val->l1);
+    diff_val->r3 = last_Val->r3 - (val->r3);
+    diff_val->r2 = last_Val->r2 - (val->r2);
+    diff_val->r1 = last_Val->r1 - (val->r1);
     
 }
 
