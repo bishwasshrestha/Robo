@@ -54,7 +54,7 @@ int rread(void);
 */
 
 int max_speed = 155;
-float kp=250, kd=0.4;
+float kp=250, kd=0.1;
 float max_value=20000, min_value=8000;
 int l_speed, r_speed;
 
@@ -74,8 +74,8 @@ void go_ahead(int left, int right, int delay);
 void normalize(struct sensors_value *, struct sensors_ *);
 
 void speed(float l_value, float r_value);
-void diff_(struct sensors_value *, struct sensors_value *, struct sensors_value *);
-
+void diff_(struct sensors_value *, struct sensors_value *, struct sensors_value *, uint32_t );
+void to_Line(struct sensors_ *);
 
 
 #if 0
@@ -119,6 +119,7 @@ int main()
 #endif
 
 #if 0
+    
 // button
 int main()
 {
@@ -148,8 +149,11 @@ int main()
             if(led) printf("Led is ON\n");
             else printf("Led is OFF\n");
             Beep(1000, 150);
-            while(SW1_Read() == 0) CyDelay(10); // wait while button is being pressed
-        }        
+            while(SW1_Read() == 0) CyDelay(1000); // wait while button is being pressed
+        }
+        else{
+            printf("button not pressed!!\n");
+        }
     }
  }   
 #endif
@@ -344,21 +348,22 @@ int main(){
 int main(){
 
      
-    Systick_Start();
+    
     CyGlobalIntEnable; 
     UART_1_Start();
+    Systick_Start();
+    
     ADC_Battery_Start();  
     IR_Start();        
-    IR_flush(); // clear IR receive buffer
+   
     
-    
+    uint32_t time=GetTicks();; 
     uint32_t IR_val;
     int16 adcresult =0;
     
    
-    //int last_Black; //0 = last black on right, 1 = last black on left
-    struct sensors_ ref, dig;
     
+    struct sensors_ ref, dig;
     struct sensors_value Val, last_Val, diff_Val={0,0,0,0,0,0};
     
     float volts = 0.0;
@@ -371,36 +376,36 @@ int main(){
     reflectance_start(); 
     CyDelay(5);
     reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
-    reflectance_digital(&dig);
+    
     reflectance_read(&ref);
     
-    
-    printf("ref: %d dig: %d\n",ref.l3, dig.l3);
-      motor_start();  
-      /* do{
-        button = SW1_Read();
-        printf("%d\n",button);
-        printf("\nstop for IR signal\n");
-            
-            if(dig.l3==1&&dig.l2==1&&dig.r2==1&&dig.r2==1){
-                go_ahead(0,0,0);
-                
-            }
-            go_ahead(0,0,0);
-            CyDelay(500);
-    }while(button!=0); */
-    
-    go_ahead(50,50,0);
-    
-    if(dig.l3&&dig.l2&&dig.l1&&dig.r1&&dig.r2&&dig.r3) motor_forward(0,0);
-    IR_wait(); // wait for IR command
-    
+   
+   
+    while(true){
+        reflectance_digital(&dig);
+    motor_start();
+    go_ahead(50,50,50);
+     printf("i am out....\n");
+        if(dig.l3&&dig.l2&&dig.l1&&dig.r1&&dig.r2&&dig.r3)  {
+             printf("i am in....\n");
+           go_ahead(0,0,0);
+            //motor_stop();
+            break;
+        }
+    }
     
    
     
+    IR_flush(); // clear IR receive buffer
+    IR_wait(); // wait for IR command
+   // motor_start();
+    go_ahead(150,150,0);
+    printf("i am out again....\n");
     
     for(;;)
     {
+        
+        
         //check battery
         ADC_Battery_StartConvert();
         if(ADC_Battery_IsEndConversion(ADC_Battery_WAIT_FOR_RESULT)) {   // wait for get ADC converted value
@@ -412,19 +417,23 @@ int main(){
            // printf("\ncode: %d Volts: %f\r\n",adcresult, volts);        
 
         }
-        
+
+            
             reflectance_read(&ref);
             normalize(&Val, &ref);
-            diff_(&diff_Val, &Val, &last_Val); 
-            
+                       
             count=(Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3);
-            last_Val=Val; 
             
-            l_speed = (Val.r1 * kp*2 - diff_Val.r1*kd)+ (Val.r2*kp *2- diff_Val.r2*kd )+ (Val.r3*kp*5 - diff_Val.r3*kd); //as the farther sensor gets black value, the speed gets higher hence sharper turn.
-            r_speed = (Val.l1 * -kp*2 - diff_Val.l1*-kd) + (Val.l2*-kp*2 - diff_Val.l2 * -kd) + (Val.l3*-kp*5 - diff_Val.l3 *-kd); // negating right speed to bring the contrast on speed
+            last_Val=Val; 
+            diff_(&diff_Val, &Val, &last_Val, time); 
+            
+            l_speed = (Val.r1 * kp - diff_Val.r1*kd)+ 2.5*(Val.r2*kp - diff_Val.r2*kd )+ 3*(Val.r3*kp - diff_Val.r3*kd); //as the farther sensor gets black value, the speed gets higher hence sharper turn.
+            r_speed = (Val.l1 * -kp - diff_Val.l1*-kd) + 2.5*(Val.l2*-kp - diff_Val.l2 * -kd) + 3*(Val.l3*-kp - diff_Val.l3 *-kd); // negating right speed to bring the contrast on speed
         
             speed = l_speed + r_speed; //depending upon values from sensor, speed is either positive or negative indicating left sensors are in black or right are in black.
-          
+
+            
+        
         
         if(count==0){
             //go_ahead(0,0,0);
@@ -453,9 +462,8 @@ int main(){
                 go_ahead(l_speed, -r_speed, 0); 
          
         }
-        
         else if(count>5&&flag<2){
-           go_ahead(50,50,0);
+           //go_ahead(50,50,0);
             flag+=1;
             CyDelay(100);
            
@@ -464,17 +472,17 @@ int main(){
             go_ahead(0,0,0);
              motor_stop();
         }
-    
+        
+            time=GetTicks();    
     }
+    
 }
 
 #endif
 
-//functon to normalize sensors value from 0 to 1
-void normalize(struct sensors_value *val, struct sensors_ *ref){
+
+void normalize(struct sensors_value *val, struct sensors_ *ref){//functon to normalize sensors value from 0 to 1
     
-          
-            
         val->l3=(ref->l3-min_value)/(max_value-min_value); //black-ref/18000 0 is black ,1 is white;
         if(val->l3>1) val->l3=1;
             else if(val->l3<0) val->l3=0;
@@ -499,51 +507,73 @@ void normalize(struct sensors_value *val, struct sensors_ *ref){
         if(val->r3>1) val->r3=1;
             else if(val->r3<0) val->r3=0;
 }
-//normalizing the speed value from 0-255
 
-//function to command motors speed and delay
-
-void go_ahead(int left, int right, int delay){
+void go_ahead(int left, int right, int delay){ //function to command motors speed and delay
     
-   
-    /*
+   /*
+    
     if(left < 0){
-    MotorDirLeft_Write(1);
-    left=left * -1;
-    }// set LeftMotor forward mode
+        MotorDirLeft_Write(1);
+        left=left * (-1);
+    }// set LeftMotor backward mode
+    
+    if(left>255){
+        left=255;
+    }
     
     if(right < 0)
     {
-    MotorDirRight_Write(1);
-    right = right * -1;
-    }// set RightMotor forward mode
+        MotorDirRight_Write(1);
+        right = right * (-1);
+    }// set RightMotor backward mode
+   
+    if(right>255){
+        right=255;
+    }
     */
-   if(left > 255) {left=255;MotorDirLeft_Write(0); } 
+    if(left > 255) {
+        left=255;
+        MotorDirLeft_Write(0); 
+    } 
         
-    else if(left<0)  { left=0; MotorDirLeft_Write(1); printf("\nleft speed negative\n");left=left*(-1); }  
+    else if(left<0)  { 
+       left=right-10;
+        MotorDirLeft_Write(1); 
+       // printf("\nleft speed negative\n");
+        //left=left*(-1); 
         
-    if(right > 255)  {right=255;MotorDirRight_Write(0); } 
+    }  
+        
+    if(right > 255){
+        right=255;
+        MotorDirRight_Write(0); 
+    } 
        
-    else if(right<0)  {right=0; MotorDirRight_Write(1); right=right*(-1);}  
+    else if(right<0){
+        
+        right=left-10; 
+        MotorDirRight_Write(1); 
+         
+        
+    }  
     
       
-   
-    
     PWM_WriteCompare1(left);       //sets left motor speed to value  "left", recieved from main function as parameter
     PWM_WriteCompare2(right);      //sets right motor speed to value  "right", recieved from main function as parameter
     
     CyDelay(delay);
 }
 
-void diff_(struct sensors_value *diff_val, struct sensors_value *val, struct sensors_value *last_Val){
+void diff_(struct sensors_value *diff_val, struct sensors_value *val, struct sensors_value *last_Val, uint32_t time){
     
     
-    diff_val->l3 = last_Val->l3 - (val->l3); //diff_val = old error value - new error value;
-    diff_val->l2 = last_Val->l2 - (val->l2);
-    diff_val->l1 = last_Val->l1 - (val->l1);
-    diff_val->r3 = last_Val->r3 - (val->r3);
-    diff_val->r2 = last_Val->r2 - (val->r2);
-    diff_val->r1 = last_Val->r1 - (val->r1);
+    diff_val->l3 = (val->l3 - (last_Val->l3))/1000*(GetTicks()-time); //diff_val = old error value - new error value;
+    diff_val->l2 = (val->l2 - (last_Val->l2))/1000*(GetTicks()-time);
+    diff_val->l1 = (val->l1 - (last_Val->l1))/1000*(GetTicks()-time);
+    diff_val->r3 = (val->r3 - (last_Val->r3))/1000*(GetTicks()-time);
+    diff_val->r2 = (val->r2 - (last_Val->r2))/1000*(GetTicks()-time);
+    diff_val->r1 = (val->r1 - (last_Val->r1))/1000*(GetTicks()-time);
+    
     
 }
 
