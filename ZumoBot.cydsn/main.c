@@ -53,7 +53,7 @@ int rread(void);
  * @details  ** Enable global interrupt since Zumo library uses interrupts. **<br>&nbsp;&nbsp;&nbsp;CyGlobalIntEnable;<br>
 */
 
-int max_speed=255;
+//int max_speed=255;
 float kp=250, kd=0.1;
 float max_value=20000, min_value=8000;
 int l_speed, r_speed;
@@ -263,7 +263,7 @@ int main(){
         // read raw sensor values
         reflectance_read(&ref);
            
-        normalize(&Val, &ref);
+        //normalize(&Val, &ref);
         //printf("%5d %5d %5d %5d %5d %5d\r\n", ref.l3, ref.l2, ref.l1, ref.r1, ref.r2, ref.r3);       // print out each period of reflectance sensors
         
         // read digital values that are based on threshold. 0 = white, 1 = black
@@ -271,72 +271,10 @@ int main(){
         reflectance_digital(&dig);      //print out 0 or 1 according to results of reflectance period
         //printf("%d %d %d %d %d %d \r\n", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);        //print out 0 or 1 according to results of reflectance period
        
-        printf("\n normalized value \nleft value: %f \nright value %f\n", Val.l3+ Val.l2+ Val.l1, Val.r1+ Val.r2+ Val.r3);
-        printf("\nleft speed %d, right speed %d",l_speed, r_speed);
+      //  printf("\n normalized value \nleft value: %f \nright value %f\n", Val.l3+ Val.l2+ Val.l1, Val.r1+ Val.r2+ Val.r3);
+        printf("\n l3=%d l2=%d l1=%d",dig.l3, dig.l2, dig.l1);
         
-        r_speed = Val.r1 * kp;
-        l_speed = Val.l1 * kp;
-        // speed(Val.l3+Val.l2+Val.l1, Val.r1+Val.r2+Val.r3);
-        //go_ahead(l_speed, r_speed, 0,0,0);
-         if( dig.l1 == 1 && dig.r1 == 1){
-            go_ahead(240,237,0,0,0);
-        }
-        else if(dig.l1 == 0 && dig.r1==1){
-         
-           //go_ahead(l_speed, r_speed, 0, 0,0);
-        go_ahead(150, 100-r_speed, 0, 0,0);
-       
-        }
-        else if(dig.l1 == 1 && dig.r1==0){
-            
-            //go_ahead(130, 150, 0, 0 ,0);
-           go_ahead(l_speed, 150, 0, 0,0);
-            
-        }
-        
-       else if(dig.r2 == 1 && dig.r1==1){
-           
-            //go_ahead(150,100-r_speed,0,0,0);
-            go_ahead(l_speed, r_speed, 0, 0,0);
-        }
-        else if(dig.l2 == 1 && dig.l1==1){
-           
-            go_ahead(100-l_speed,150,0,0,0);
-            //go_ahead(l_speed, r_speed, 0, 0,0);
-        }
-        
-        else if(dig.l3==1 &&dig.l2==1){
-            last_Black=1;
-            go_ahead(50,150,0,0,0);
-        //go_ahead(l_speed, r_speed, 0, 1,0);
-        }
-       
-        else if(dig.r3==1 && dig.r2==1){
-             last_Black=0;
-           go_ahead(150,50,0,0,0);
-           // go_ahead(l_speed, r_speed, 0, 0,1);
-        }
-        else if(last_Black){
-            go_ahead(250,250,10,1,0);
-            //go_ahead(l_speed, r_speed, 0, 1,0);
-        }
-        else if(!last_Black){
-           go_ahead(250,250,10,0,1);
-           // go_ahead(l_speed, r_speed, 0, 0,1);
-        }
-        if(dig.l1 && dig.l2 && dig.l3 && dig.r3 && dig.r2 && dig.r1){
-            motor_forward(0,0);
-            
-        }
-        if((Val.l1 + Val.l2 + Val.l3 + Val.r3 + Val.r2 + Val.r1)<1){
-            if(count>2){
-                motor_forward(0,0);
-            }
-            count++;
-            motor_forward(20,0);
-        }
-    CyDelay(100);
-   
+     
 }
 }
 #endif
@@ -366,30 +304,34 @@ int main(){
     
     //reflectance
     reflectance_start(); 
-    CyDelay(5);
+    CyDelay(2);
     reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
     
-    reflectance_read(&ref);
+    reflectance_digital(&dig);
     
-   
+   //printf("l3=%d l2=%d l1=%d",dig.l3, dig.l2, dig.l1);
    
     while(true){
+        
         reflectance_digital(&dig);
-    motor_start();
-    go_ahead(150,150,0);
-     
-        if(dig.l3&&dig.l2&&dig.l1&&dig.r1&&dig.r2&&dig.r3)  {
-            flag+=1;
-            go_ahead(0,0,0);
-             break;
-        }
-       
+        motor_start();
+        go_ahead(250,250,0);
+         printf("go condition...\n");
+            if(dig.r3+dig.r2+dig.r1+dig.l3+dig.l2+dig.l1>3)  {
+                printf("%d\n",dig.l3+dig.l2+dig.l1+dig.r1+dig.r2+dig.r3);
+                flag+=1;
+                go_ahead(0,0,0);
+              
+            break; 
+            }
     }
-    
+   // printf("out condition...\n");
+    int temp;
     IR_flush(); // clear IR receive buffer
     IR_wait(); // wait for IR command
-    go_ahead(150,150,0);    
-    
+    motor_forward(50,0);  
+    printf("go\n");
+    CyDelay(100);
     
     for(;;)
     {
@@ -415,8 +357,8 @@ int main(){
             diff_(&diff_Val, &Val, &last_Val, time, time1); 
             count=(Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3);
             
-            l_speed = (Val.r1 * kp - diff_Val.r1*kd)*2.5+ (Val.r2*kp - diff_Val.r2*kd)*3.5+ (Val.r3*kp - diff_Val.r3*kd)*5; //as the farther sensor gets black value, the speed gets higher hence sharper turn.
-            r_speed = (Val.l1 * -kp - diff_Val.l1*-kd)*2.5 + (Val.l2*-kp - diff_Val.l2 * -kd)*3.5 + (Val.l3*-kp - diff_Val.l3 *-kd)*5; // negating right speed to bring the contrast on speed
+            l_speed = (Val.r1 * kp - diff_Val.r1*kd)+ (Val.r2*kp - diff_Val.r2*kd)*3 + (Val.r3*kp - diff_Val.r3*kd)*5; //as the farther sensor gets black value, the speed gets higher hence sharper turn.
+            r_speed = (Val.l1 * -kp - diff_Val.l1*-kd) + (Val.l2*-kp - diff_Val.l2 * -kd)*3 + (Val.l3*-kp - diff_Val.l3 *-kd)*5; // negating right speed to bring the contrast on speed
         
             speed = l_speed + r_speed; //depending upon values from sensor, speed is either positive or negative indicating left sensors are in black or right are in black.
             
@@ -431,7 +373,7 @@ int main(){
                 
             }  
             else if(last_Black==1){
-             
+                
                     go_ahead(-250, 250,0);//printf("\nr_speed %f",Val.l1);
                
             }
@@ -453,10 +395,12 @@ int main(){
         }
         
         else {   
-            if(count>5&&flag<2){
-                CyDelay(500);
+            if(count==6&&flag<2){
+                //go_ahead(50,50,0);
                 flag+=1;
-            }else if(count>5&&flag>=2){
+                CyDelay(200);
+                
+            }else if(count==6&&flag>=2){
                 go_ahead(0,0,0);
                 motor_stop();
             }
@@ -520,6 +464,7 @@ void go_ahead(int left, int right, int delay){ //function to command motors spee
     else if(right<0){
         right=right*(-1); 
         MotorDirRight_Write(1); 
+        
     
     }  
     
@@ -533,12 +478,12 @@ void go_ahead(int left, int right, int delay){ //function to command motors spee
 void diff_(struct sensors_value *diff_val, struct sensors_value *val, struct sensors_value *last_Val, uint32_t time, uint32_t time1){
     
     
-    diff_val->l3 = (val->l3 - (last_Val->l3))/(time-time1); //diff_val = old error value - new error value;
-    diff_val->l2 = (val->l2 - (last_Val->l2))/(time-time1);
-    diff_val->l1 = (val->l1 - (last_Val->l1))/(time-time1);
-    diff_val->r3 = (val->r3 - (last_Val->r3))/(time-time1);
-    diff_val->r2 = (val->r2 - (last_Val->r2))/(time-time1);
-    diff_val->r1 = (val->r1 - (last_Val->r1))/(time-time1);
+    diff_val->l3 = (val->l3 - (last_Val->l3))/1000*(time-time1); //diff_val = old error value - new error value;
+    diff_val->l2 = (val->l2 - (last_Val->l2))/1000*(time-time1);
+    diff_val->l1 = (val->l1 - (last_Val->l1))/1000*(time-time1);
+    diff_val->r3 = (val->r3 - (last_Val->r3))/1000*(time-time1);
+    diff_val->r2 = (val->r2 - (last_Val->r2))/1000*(time-time1);
+    diff_val->r1 = (val->r1 - (last_Val->r1))/1000*(time-time1);
    // printf("\n%f %d \n",diff_val->l3, time1);
     
 }
