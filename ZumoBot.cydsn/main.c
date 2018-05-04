@@ -310,15 +310,15 @@ int main(){
     reflectance_digital(&dig);
     
    //printf("l3=%d l2=%d l1=%d",dig.l3, dig.l2, dig.l1);
-   
-    while(true){
+   //while loop to follow black line until first stop(a horizontal black line)
+    while(true){ 
         
-        reflectance_digital(&dig);
+        reflectance_digital(&dig); //returns value sensor values in o and 1 and stores on dig. 
         motor_start();
         go_ahead(250,250,0);
          printf("go condition...\n");
-            if(dig.r3+dig.r2+dig.r1+dig.l3+dig.l2+dig.l1>3)  {
-                printf("%d\n",dig.l3+dig.l2+dig.l1+dig.r1+dig.r2+dig.r3);
+            if(dig.r3+dig.r2+dig.r1+dig.l3+dig.l2+dig.l1>3)  {      //if  all/most are on black summation will be atleast more than 3
+                //printf("%d\n",dig.l3+dig.l2+dig.l1+dig.r1+dig.r2+dig.r3);
                 flag+=1;
                 go_ahead(0,0,0);
               
@@ -329,9 +329,9 @@ int main(){
     int temp;
     IR_flush(); // clear IR receive buffer
     IR_wait(); // wait for IR command
-    motor_forward(50,0);  
-    printf("go\n");
-    CyDelay(100);
+    motor_forward(50,100);  
+   // printf("go\n");
+    //CyDelay(100);
     
     for(;;)
     {
@@ -350,12 +350,14 @@ int main(){
         }
 
             
-            reflectance_read(&ref);
-            normalize(&Val, &ref);
+            reflectance_read(&ref); 
+            normalize(&Val, &ref);      //summarizes the reflectance value from sensors from 0 to 1
                        
-            time=GetTicks();
-            diff_(&diff_Val, &Val, &last_Val, time, time1); 
-            count=(Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3);
+            time=GetTicks();        //gets current time
+            
+            diff_(&diff_Val, &Val, &last_Val, time, time1);     //differentiates the current value from last value with respect to time difference
+            
+            count=(Val.l1+Val.l2+Val.l3+Val.r1+Val.r2+Val.r3);      //counts the summation of all sensor's normalized value
             
             l_speed = (Val.r1 * kp - diff_Val.r1*kd)+ (Val.r2*kp - diff_Val.r2*kd)*3 + (Val.r3*kp - diff_Val.r3*kd)*5; //as the farther sensor gets black value, the speed gets higher hence sharper turn.
             r_speed = (Val.l1 * -kp - diff_Val.l1*-kd) + (Val.l2*-kp - diff_Val.l2 * -kd)*3 + (Val.l3*-kp - diff_Val.l3 *-kd)*5; // negating right speed to bring the contrast on speed
@@ -365,22 +367,22 @@ int main(){
         
             
         
-        if(count<=0){
+        if(count<=0){       //if all on white
             
-            if(last_Black==2){
+            if(last_Black==2){      //checks whether the last sensor to detect black was right sensor
                 
-                    go_ahead(250, -250,0);//printf("\nr_speed %f",Val.l1);
+                    go_ahead(250, -250,0);
                 
             }  
-            else if(last_Black==1){
+            else if(last_Black==1){  //checks whether the last sensor to detect black was left sensor
                 
-                    go_ahead(-250, 250,0);//printf("\nr_speed %f",Val.l1);
+                    go_ahead(-250, 250,0);
                
             }
         }
-        else if(count<5&&count>0){
+        else if(count<5&&count>0){      //if more than one sensor and less than 5 sensor are reading black
             
-            if(Val.l3)    last_Black=1;
+            if(Val.l3)    last_Black=1;     //
             if(Val.r3)    last_Black=2;
            
             if(speed<=0)    // if speed is negative, right speed is higher so it turns left.
@@ -395,29 +397,136 @@ int main(){
         }
         
         else {   
-            if(count==6&&flag<2){
+            if(count==6&&flag<2){       //if reads black line for second time
                 //go_ahead(50,50,0);
-                flag+=1;
-                CyDelay(200);
+                flag+=1;                //raises the flag count
+                CyDelay(200);           //gives enough time to run ahead so sensor wont count same black line more than once
                 
-            }else if(count==6&&flag>=2){
-                go_ahead(0,0,0);
-                motor_stop();
+            }else if(count==6&&flag>=2){        //if read black line and flag is 2 or more
+                go_ahead(0,0,0);                //stop the robot
+                motor_stop();                   //stop the motor
             }
         
             
         }
-            time1=time;
-            last_Val=Val; 
+            time1=time;                         //assign current time to time1 so it can be use as last_value in next loop
+            last_Val=Val;                       //assign Val to last_Val so it can be used as last_Value in next loop
     }
 }
 
 #endif
-
-
+#if 1 //ZUMO
+int main (void){
+    
+    CyGlobalIntEnable; 
+    UART_1_Start();
+    Systick_Start();
+    Ultra_Start();  
+    ADC_Battery_Start();  
+    IR_Start();        
+   
+    uint32_t time1, time; 
+    uint32_t IR_val;
+    int16 adcresult =0;
+    
+    struct sensors_ ref, dig;struct sensors_value Val;
+    int a=0; 
+    float volts = 0.0;
+    int flag=0,count,l_count,r_count, speed,last_Black=0;
+    int d = Ultra_GetDistance();
+    //BatteryLed_Write(1); // Switch led on 
+    BatteryLed_Write(0); // Switch led off 
+    
+    //reflectance
+    reflectance_start(); 
+    CyDelay(2);
+    reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    
+    reflectance_digital(&dig);
+    
+    while(true){
+        
+        reflectance_digital(&dig);
+        motor_start();
+        go_ahead(250,250,0);
+         printf("go condition...\n");
+            if(dig.r3+dig.r2+dig.r1+dig.l3+dig.l2+dig.l1>3)  {
+                printf("%d\n",dig.l3+dig.l2+dig.l1+dig.r1+dig.r2+dig.r3);
+                flag+=1;
+                go_ahead(0,0,0);
+              
+            break; 
+            }
+    }
+    printf("out condition...\n");
+    
+    IR_flush(); // clear IR receive buffer
+    IR_wait(); // wait for IR command
+    motor_forward(50,0);  
+    printf("go\n");
+    CyDelay(500);
+    
+    for(;;)
+    {
+        d = Ultra_GetDistance();
+       //printf("%d\n",d);
+        l_count=(Val.l3+Val.l2+Val.l2);
+        r_count=(Val.r3+Val.r2+Val.r1);
+        count=l_count+r_count;
+        //check battery
+        ADC_Battery_StartConvert();
+       
+        
+        if(ADC_Battery_IsEndConversion(ADC_Battery_WAIT_FOR_RESULT)) {   // wait for get ADC converted value
+            adcresult = ADC_Battery_GetResult16(); // get the ADC value (0 - 4095)
+            
+            volts=(adcresult/4095)*5*1.5;
+        }
+        
+        reflectance_digital(&dig);
+       
+        
+            reflectance_read(&ref);
+            normalize(&Val, &ref);
+            reflectance_digital(&dig);
+            CyDelay(20);
+            
+            //printf("%d\n",150*(!a));
+       
+            
+            if(l_count>=1){
+                    go_ahead(150,-150,200);
+                    printf("turn right\n");
+            }
+            else if(r_count>=1){
+                    go_ahead(-150,150,200);
+                    printf("turn left\n");
+            }
+            else if(count>3){
+                
+                    go_ahead(-150,-150,200);
+                    go_ahead(-250,250,500);
+                    printf("turn around\n");
+            }
+            while(count<1){
+                if(d<20&&d>0){
+                    printf("following\n");
+                    go_ahead(250,250,00);
+            
+                }
+                else{
+                    break;
+                }
+            } 
+        
+        
+    }
+    
+}
+#endif
 void normalize(struct sensors_value *val, struct sensors_ *ref){//functon to normalize sensors value from 0 to 1
     
-        val->l3=(ref->l3-min_value)/(max_value-min_value); //black-ref/18000 0 is black ,1 is white;
+        val->l3=(ref->l3-min_value)/(max_value-min_value); //black-ref/18000 1 is black ,0 is white;
         if(val->l3>1) val->l3=1;
             else if(val->l3<0) val->l3=0;
             
@@ -445,16 +554,18 @@ void normalize(struct sensors_value *val, struct sensors_ *ref){//functon to nor
 void go_ahead(int left, int right, int delay){ //function to command motors speed and delay
     
   
-    if(left > 255) {
-        left=255;
-        MotorDirLeft_Write(0); 
+    if(left > 255) {                    //if speed is above 255,
+        left=255;                       // it assigns speed as max speed (255)
+        MotorDirLeft_Write(0);          //motor direction set to forward
     } 
         
     else if(left<0)  { 
        left=left*(-1);
-        MotorDirLeft_Write(1); 
+        MotorDirLeft_Write(1);          //motor direction set to backward
        
-    }  
+    }else{
+        MotorDirLeft_Write(0);
+    }
         
     if(right > 255){
         right=255;
@@ -466,7 +577,9 @@ void go_ahead(int left, int right, int delay){ //function to command motors spee
         MotorDirRight_Write(1); 
         
     
-    }  
+    }  else{
+        MotorDirRight_Write(0);
+    }
     
       
     PWM_WriteCompare1(left);       //sets left motor speed to value  "left", recieved from main function as parameter
@@ -478,7 +591,7 @@ void go_ahead(int left, int right, int delay){ //function to command motors spee
 void diff_(struct sensors_value *diff_val, struct sensors_value *val, struct sensors_value *last_Val, uint32_t time, uint32_t time1){
     
     
-    diff_val->l3 = (val->l3 - (last_Val->l3))/1000*(time-time1); //diff_val = old error value - new error value;
+    diff_val->l3 = (val->l3 - (last_Val->l3))/1000*(time-time1); //diff_val = old error value - new error value/ time difference;
     diff_val->l2 = (val->l2 - (last_Val->l2))/1000*(time-time1);
     diff_val->l1 = (val->l1 - (last_Val->l1))/1000*(time-time1);
     diff_val->r3 = (val->r3 - (last_Val->r3))/1000*(time-time1);

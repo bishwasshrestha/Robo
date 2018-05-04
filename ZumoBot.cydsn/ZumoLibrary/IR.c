@@ -63,8 +63,7 @@ void IR_wait(void)
                 break;
             }
         }
-    }
-}    
+    }}    
 
 /**
 * @brief    Starting Ultra Sonic Sensor
