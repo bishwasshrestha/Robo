@@ -54,7 +54,7 @@ int rread(void);
 */
 
 //int max_speed=255;
-float kp=250, kd=0.1;
+float kp=255, kd=0.01;
 float max_value=20000, min_value=8000;
 int l_speed, r_speed;
 
@@ -279,7 +279,7 @@ int main(){
 }
 #endif
 
-#if 1 // PID main
+#if 0 // PID main
 int main(){
 
     CyGlobalIntEnable; 
@@ -315,7 +315,7 @@ int main(){
         
         reflectance_digital(&dig); //returns value sensor values in o and 1 and stores on dig. 
         motor_start();
-        go_ahead(250,250,0);
+        go_ahead(100,100,0);
          printf("go condition...\n");
             if(dig.r3+dig.r2+dig.r1+dig.l3+dig.l2+dig.l1>3)  {      //if  all/most are on black summation will be atleast more than 3
                 //printf("%d\n",dig.l3+dig.l2+dig.l1+dig.r1+dig.r2+dig.r3);
@@ -326,10 +326,12 @@ int main(){
             }
     }
    // printf("out condition...\n");
-    int temp;
+   // int temp;
+    Beep(100,150);
+    Beep(100,200);
     IR_flush(); // clear IR receive buffer
     IR_wait(); // wait for IR command
-    motor_forward(50,100);  
+    motor_forward(100,100);  
    // printf("go\n");
     //CyDelay(100);
     
@@ -403,8 +405,10 @@ int main(){
                 CyDelay(200);           //gives enough time to run ahead so sensor wont count same black line more than once
                 
             }else if(count==6&&flag>=2){        //if read black line and flag is 2 or more
-                go_ahead(0,0,0);                //stop the robot
+                go_ahead(0,0,0);    //stop the robot
                 motor_stop();                   //stop the motor
+                Beep(100,150);
+                Beep(100,200);
             }
         
             
@@ -509,10 +513,12 @@ int main (void){
                     printf("turn around\n");
             }
             while(count<1){
-                if(d<20&&d>0){
+                if(d<15&&d>0){
                     printf("following\n");
                     go_ahead(250,250,00);
-            
+                    if(count>1){
+                     break;
+                    }
                 }
                 else{
                     break;
